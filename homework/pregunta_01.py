@@ -1,3 +1,7 @@
+import os
+import zipfile
+import pandas as pd
+
 # pylint: disable=import-outside-toplevel
 # pylint: disable=line-too-long
 # flake8: noqa
@@ -6,8 +10,8 @@ Escriba el codigo que ejecute la accion solicitada en cada pregunta.
 """
 
 
-def pregunta_01():
-    """
+
+"""
     La información requerida para este laboratio esta almacenada en el
     archivo "files/input.zip" ubicado en la carpeta raíz.
     Descomprima este archivo.
@@ -71,3 +75,73 @@ def pregunta_01():
 
 
     """
+  
+
+
+# Ruta base del proyecto (carpeta raíz)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Rutas relevantes
+FILES_DIR = os.path.join(BASE_DIR, "files")
+INPUT_ZIP = os.path.join(FILES_DIR, "input.zip")
+INPUT_DIR = os.path.join(FILES_DIR, "input")
+OUTPUT_DIR = os.path.join(FILES_DIR, "output")
+
+
+def _ensure_input_unzipped():
+    """
+    Descomprime input.zip si la carpeta input/ no existe.
+    """
+    if not os.path.exists(INPUT_DIR):
+        print("Descomprimiendo input.zip...")
+        with zipfile.ZipFile(INPUT_ZIP, "r") as z:
+            z.extractall(FILES_DIR)
+
+
+def _build_dataframe(split_path: str) -> pd.DataFrame:
+    """
+    Construye un dataframe a partir de:
+    - files/input/train
+    - files/input/test
+    y sus subcarpetas:
+    - neutral/
+    - positive/
+    - negative/
+    """
+    rows = []
+    sentiments = ["neutral", "positive", "negative"]
+
+    for sentiment in sentiments:
+        sentiment_dir = os.path.join(split_path, sentiment)
+
+        if not os.path.exists(sentiment_dir):
+            raise FileNotFoundError(f"No existe la carpeta: {sentiment_dir}")
+
+        for filename in os.listdir(sentiment_dir):
+            file_path = os.path.join(sentiment_dir, filename)
+
+            with open(file_path, "r", encoding="utf-8") as f:
+                text = f.read().strip()
+
+            rows.append({
+                "phrase": text,
+                "target": sentiment
+            })
+
+    return pd.DataFrame(rows)
+
+
+def pregunta_01():
+    # 1. Garantizar que input.zip esté descomprimido
+    _ensure_input_unzipped()
+
+    # 2. Crear carpeta output si no existe
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    # 3. Construir datasets
+    train_df = _build_dataframe(os.path.join(INPUT_DIR, "train"))
+    test_df = _build_dataframe(os.path.join(INPUT_DIR, "test"))
+
+    # 4. Guardar CSV exactamente donde pytest los busca
+    train_df.to_csv(os.path.join(OUTPUT_DIR, "train_dataset.csv"), index=False)
+    test_df.to_csv(os.path.join(OUTPUT_DIR, "test_dataset.csv"), index=False)
